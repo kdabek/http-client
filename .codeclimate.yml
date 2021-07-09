@@ -35,13 +35,6 @@ plugins:
     channel: beta
     config:
       standard: "PSR12"
-  phpmd:
-    enabled: true
-    checks:
-      CleanCode/StaticAccess:
-        enabled: false
-      Naming/ShortMethodName:
-        enabled: false
 
 exclude_patterns:
   - "config/"
