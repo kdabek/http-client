@@ -35,7 +35,6 @@
     "scripts": {
         "tests": [
             "vendor/bin/phpunit",
-            "vendor/bin/phpmd src/ text cleancode,unusedcode,codesize,naming,controversial,design",
             "vendor/bin/phpcs --standard=PSR12 src/"
         ]
     },
