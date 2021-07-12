@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kdabek\HttpClient;
 
+use Kdabek\HttpClient\Auth\Factory\AuthorizationFactoryInterface;
+use Kdabek\HttpClient\Auth\Strategy\BasicAuth;
+use Kdabek\HttpClient\Auth\Strategy\TokenAuth;
 use Kdabek\HttpClient\Header\Header;
 use Kdabek\HttpClient\Header\MimeType;
 use Kdabek\HttpClient\Response\ResponseInterface;
@@ -13,12 +16,16 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface as PsrResponse;
 use Psr\Http\Message\StreamInterface;
-use Psr\Http\Message\UriInterface;
 
 class ClientTest extends TestCase
 {
+    private $defaultHeaders = [
+        Header::ACCEPT       => MimeType::JSON,
+        Header::CONTENT_TYPE => MimeType::JSON
+    ];
     private RequestFactoryInterface $requestFactory;
     private TransportInterface $transport;
+    private AuthorizationFactoryInterface $authorizationFactory;
     private Client $client;
 
     protected function setUp(): void
@@ -27,7 +34,8 @@ class ClientTest extends TestCase
 
         $this->requestFactory = $this->getMockForAbstractClass(RequestFactoryInterface::class);
         $this->transport = $this->getMockForAbstractClass(TransportInterface::class);
-        $this->client = new Client($this->requestFactory, $this->transport);
+        $this->authorizationFactory = $this->getMockForAbstractClass(AuthorizationFactoryInterface::class);
+        $this->client = new Client($this->requestFactory, $this->transport, $this->authorizationFactory);
     }
 
     public function testGet()
@@ -68,20 +76,74 @@ class ClientTest extends TestCase
         $this->assertInstanceOf(ResponseInterface::class, $response);
     }
 
+    public function testClearHeaders()
+    {
+        $headers = [
+            'Accept-Language' => 'en-US'
+        ];
+        $this->expectRequest('POST', 'http://example.com', ['name' => 'John']);
+        $response = $this->client
+            ->withHeaders($headers)
+            ->clearHeaders()
+            ->post('http://example.com', ['name' => 'John']);
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+    }
+
+    public function testWithBasicAuth()
+    {
+        $headers = [
+            'Authorization' => 'Basic ' . base64_encode('john:secret')
+        ];
+        $this->authorizationFactory
+            ->expects($this->once())
+            ->method('createFrom')
+            ->willReturn(new BasicAuth('john', 'secret'));
+        $this->expectRequest('POST', 'http://example.com', ['name' => 'John'], $headers);
+        $response = $this->client
+            ->withBasicAuth('john', 'secret')
+            ->post('http://example.com', ['name' => 'John']);
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+    }
+
+    public function testWithTokenAuth()
+    {
+        $headers = [
+            'Authorization' => 'Bearer someToken'
+        ];
+        $this->authorizationFactory
+            ->expects($this->once())
+            ->method('createFrom')
+            ->willReturn(new TokenAuth('someToken'));
+        $this->expectRequest('POST', 'http://example.com', ['name' => 'John'], $headers);
+        $response = $this->client
+            ->withToken('someToken')
+            ->post('http://example.com', ['name' => 'John']);
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+    }
+
+    public function testClearAuth()
+    {
+        $this->authorizationFactory
+            ->expects($this->once())
+            ->method('createFrom')
+            ->willReturn(new TokenAuth('someToken'));
+        $this->expectRequest('POST', 'http://example.com', ['name' => 'John']);
+        $response = $this->client
+            ->withToken('someToken')
+            ->clearAuth()
+            ->post('http://example.com', ['name' => 'John']);
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+    }
+
     private function expectRequest(string $method, string $url, array $data = [], array $headers = [])
     {
-        $defaultHeaders = [
-            Header::ACCEPT       => MimeType::JSON,
-            Header::CONTENT_TYPE => MimeType::JSON
-        ];
-        $headers = array_merge($defaultHeaders, $headers);
+        $headers = array_merge($this->defaultHeaders, $headers);
         $streamInterface = $this->getMockForAbstractClass(StreamInterface::class);
         $streamInterface->method('__toString')->willReturn(json_encode($data));
         $request = $this->getMockForAbstractClass(RequestInterface::class);
         $request->method('getBody')->willReturn($streamInterface);
-
         $request
-            ->expects($this->atLeastOnce())
+            ->expects($this->exactly(count($headers)))
             ->method('withAddedHeader')
             ->withConsecutive(...array_map(function ($name, $value) {
                 return [$name, $value];
