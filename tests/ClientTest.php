@@ -13,13 +13,11 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface as PsrResponse;
 use Psr\Http\Message\StreamInterface;
-use Psr\Http\Message\UriFactoryInterface;
 use Psr\Http\Message\UriInterface;
 
 class ClientTest extends TestCase
 {
     private RequestFactoryInterface $requestFactory;
-    private UriFactoryInterface $uriFactory;
     private TransportInterface $transport;
     private Client $client;
 
@@ -28,9 +26,8 @@ class ClientTest extends TestCase
         parent::setUp();
 
         $this->requestFactory = $this->getMockForAbstractClass(RequestFactoryInterface::class);
-        $this->uriFactory = $this->getMockForAbstractClass(UriFactoryInterface::class);
         $this->transport = $this->getMockForAbstractClass(TransportInterface::class);
-        $this->client = new Client($this->requestFactory, $this->uriFactory, $this->transport);
+        $this->client = new Client($this->requestFactory, $this->transport);
     }
 
     public function testGet()
@@ -78,7 +75,6 @@ class ClientTest extends TestCase
             Header::CONTENT_TYPE => MimeType::JSON
         ];
         $headers = array_merge($defaultHeaders, $headers);
-        $uri = $this->getMockForAbstractClass(UriInterface::class);
         $streamInterface = $this->getMockForAbstractClass(StreamInterface::class);
         $streamInterface->method('__toString')->willReturn(json_encode($data));
         $request = $this->getMockForAbstractClass(RequestInterface::class);
@@ -92,16 +88,10 @@ class ClientTest extends TestCase
             }, array_keys($headers), array_values($headers)))
             ->willReturnSelf();
 
-        $this->uriFactory
-            ->expects($this->once())
-            ->method('createUri')
-            ->with($url)
-            ->willReturn($uri);
-
         $this->requestFactory
             ->expects($this->once())
             ->method('createRequest')
-            ->with($method, $uri)
+            ->with($method, $url)
             ->willReturn($request);
 
         $this->transport

@@ -10,7 +10,6 @@ use Kdabek\HttpClient\Response\Response;
 use Kdabek\HttpClient\Response\ResponseInterface;
 use Kdabek\HttpClient\Transport\TransportInterface;
 use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\UriFactoryInterface;
 
 class Client
 {
@@ -19,17 +18,12 @@ class Client
         Header::CONTENT_TYPE => MimeType::JSON
     ];
     private RequestFactoryInterface $requestFactory;
-    private UriFactoryInterface $uriFactory;
     private TransportInterface $transport;
     private Header $headers;
 
-    public function __construct(
-        RequestFactoryInterface $requestFactory,
-        UriFactoryInterface $uriFactory,
-        TransportInterface $transport
-    ) {
+    public function __construct(RequestFactoryInterface $requestFactory, TransportInterface $transport)
+    {
         $this->requestFactory = $requestFactory;
-        $this->uriFactory = $uriFactory;
         $this->transport = $transport;
         $this->headers = new Header(self::DEFAULT_HEADERS);
     }
@@ -64,7 +58,7 @@ class Client
     protected function request(string $method, string $url, array $data = []): ResponseInterface
     {
         $request = $this->headers->bindTo(
-            $this->requestFactory->createRequest($method, $this->uriFactory->createUri($url))
+            $this->requestFactory->createRequest($method, $url)
         );
         $request->getBody()->write(json_encode($data));
 
