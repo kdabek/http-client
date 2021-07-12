@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Kdabek\HttpClient;
 
+use Kdabek\HttpClient\Auth\Credentials\CredentialsInterface;
+use Kdabek\HttpClient\Auth\Credentials\LoginAndPassword;
+use Kdabek\HttpClient\Auth\Credentials\Token;
+use Kdabek\HttpClient\Auth\Factory\AuthorizationFactoryInterface;
 use Kdabek\HttpClient\Header\Header;
 use Kdabek\HttpClient\Header\MimeType;
 use Kdabek\HttpClient\Response\Response;
 use Kdabek\HttpClient\Response\ResponseInterface;
 use Kdabek\HttpClient\Transport\TransportInterface;
 use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\UriFactoryInterface;
 
 class Client
 {
@@ -19,18 +22,18 @@ class Client
         Header::CONTENT_TYPE => MimeType::JSON
     ];
     private RequestFactoryInterface $requestFactory;
-    private UriFactoryInterface $uriFactory;
     private TransportInterface $transport;
+    private AuthorizationFactoryInterface $authorizationFactory;
     private Header $headers;
 
     public function __construct(
         RequestFactoryInterface $requestFactory,
-        UriFactoryInterface $uriFactory,
-        TransportInterface $transport
+        TransportInterface $transport,
+        AuthorizationFactoryInterface $authorizationFactory
     ) {
         $this->requestFactory = $requestFactory;
-        $this->uriFactory = $uriFactory;
         $this->transport = $transport;
+        $this->authorizationFactory = $authorizationFactory;
         $this->headers = new Header(self::DEFAULT_HEADERS);
     }
 
@@ -61,10 +64,44 @@ class Client
         return $this;
     }
 
+    public function clearHeaders(): self
+    {
+        $this->headers->exchangeArray(self::DEFAULT_HEADERS);
+
+        return $this;
+    }
+
+    public function withBasicAuth(string $login, string $password): self
+    {
+        $this->setAuth(new LoginAndPassword($login, $password));
+
+        return $this;
+    }
+
+    public function withToken(string $token): self
+    {
+        $this->setAuth(new Token($token));
+
+        return $this;
+    }
+
+    public function clearAuth(): self
+    {
+        $this->headers->offsetUnset(Header::AUTHORIZATION);
+
+        return $this;
+    }
+
+    private function setAuth(CredentialsInterface $credentials): void
+    {
+        $strategy = $this->authorizationFactory->createFrom($credentials);
+        $this->withHeaders($strategy->getCredentials());
+    }
+
     protected function request(string $method, string $url, array $data = []): ResponseInterface
     {
         $request = $this->headers->bindTo(
-            $this->requestFactory->createRequest($method, $this->uriFactory->createUri($url))
+            $this->requestFactory->createRequest($method, $url)
         );
         $request->getBody()->write(json_encode($data));
 

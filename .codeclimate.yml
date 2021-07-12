@@ -35,6 +35,8 @@ plugins:
     channel: beta
     config:
       standard: "PSR12"
+  phpmd:
+    enabled: false
 
 exclude_patterns:
   - "config/"

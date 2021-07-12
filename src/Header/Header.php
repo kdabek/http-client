@@ -10,8 +10,9 @@ use Psr\Http\Message\ResponseInterface;
 
 class Header extends ArrayObject
 {
-    public const ACCEPT       = 'Accept';
-    public const CONTENT_TYPE = 'Content-Type';
+    public const ACCEPT        = 'Accept';
+    public const AUTHORIZATION = 'Authorization';
+    public const CONTENT_TYPE  = 'Content-Type';
 
     public function bindTo(RequestInterface | ResponseInterface $message): RequestInterface | ResponseInterface
     {
