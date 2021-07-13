@@ -14,6 +14,7 @@ use Kdabek\HttpClient\Response\Response;
 use Kdabek\HttpClient\Response\ResponseInterface;
 use Kdabek\HttpClient\Transport\TransportInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Log\LoggerInterface;
 
 class Client
 {
@@ -25,6 +26,7 @@ class Client
     private TransportInterface $transport;
     private AuthorizationFactoryInterface $authorizationFactory;
     private Header $headers;
+    private ?LoggerInterface $logger = null;
 
     public function __construct(
         RequestFactoryInterface $requestFactory,
@@ -92,6 +94,13 @@ class Client
         return $this;
     }
 
+    public function setLogger(LoggerInterface $logger): self
+    {
+        $this->logger = $logger;
+
+        return $this;
+    }
+
     private function setAuth(CredentialsInterface $credentials): void
     {
         $strategy = $this->authorizationFactory->createFrom($credentials);
@@ -104,7 +113,10 @@ class Client
             $this->requestFactory->createRequest($method, $url)
         );
         $request->getBody()->write(json_encode($data));
+        $this->logger?->debug('REQUEST', ['payload' => $request]);
+        $response = $this->transport->request($request);
+        $this->logger?->debug('RESPONSE', ['payload' => $response]);
 
-        return new Response($this->transport->request($request));
+        return new Response($response);
     }
 }
