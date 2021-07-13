@@ -16,6 +16,7 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface as PsrResponse;
 use Psr\Http\Message\StreamInterface;
+use Psr\Log\LoggerInterface;
 
 class ClientTest extends TestCase
 {
@@ -132,6 +133,30 @@ class ClientTest extends TestCase
             ->withToken('someToken')
             ->clearAuth()
             ->post('http://example.com', ['name' => 'John']);
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+    }
+
+    public function testWithLogger()
+    {
+        $logger = $this->getMockForAbstractClass(LoggerInterface::class);
+        $logger
+            ->expects($this->exactly(2))
+            ->method('debug')
+            ->withConsecutive(
+                ['REQUEST', $this->callback(function ($context) {
+                    return is_array($context)
+                        && array_key_exists('payload', $context)
+                        && $context['payload'] instanceof RequestInterface;
+                })],
+                ['RESPONSE', $this->callback(function ($context) {
+                    return is_array($context)
+                        && array_key_exists('payload', $context)
+                        && $context['payload'] instanceof PsrResponse;
+                })],
+            );
+        $this->client->setLogger($logger);
+        $this->expectRequest('GET', 'http://example.com');
+        $response = $this->client->get('http://example.com');
         $this->assertInstanceOf(ResponseInterface::class, $response);
     }
 
